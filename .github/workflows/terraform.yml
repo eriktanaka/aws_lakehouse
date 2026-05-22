@@ -45,3 +45,4 @@ jobs:
         run: |
           echo "Syncing scripts to S3..."
           aws s3 sync ./scripts s3://lakehouse-portfolio-artifacts-datashi/scripts/ --delete
+          

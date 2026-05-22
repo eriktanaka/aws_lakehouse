@@ -1,0 +1,1 @@
+# On building project for a AWS Serverless Lakehouse with Crypto market data
