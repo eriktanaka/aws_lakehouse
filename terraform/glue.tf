@@ -11,6 +11,7 @@ resource "aws_glue_job" "bronze_btc" {
     local.common_default_arguments,
     {
       "--job_name" = join("-", [local.project_prefix, "glue-job", "bronze", "btc"])
+      "--additional-python-modules" = "awswrangler"
     }
   )
 }
@@ -33,6 +34,7 @@ resource "aws_glue_job" "silver_btc" {
     {
       "--job_name" = join("-", [local.project_prefix, "glue-job", "bronze", "btc"]),
       "--table_name" = "bronze_btc"
+      "--additional-python-modules" = "awswrangler"
     }
   )
 }
