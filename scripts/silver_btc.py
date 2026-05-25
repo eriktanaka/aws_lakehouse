@@ -1,44 +1,107 @@
-import awswrangler as wr
-from awsglue.utils import getResolvedOptions
 import sys
-import pandas as pd
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
+from pyspark.sql.functions import col, to_timestamp
 
+# =============================================================================
+# 1. INICIALIZAÇÃO DO MOTOR SPARK E VARIÁVEIS
+# =============================================================================
+# Lê os argumentos passados pelo Terraform
 args = getResolvedOptions(
     sys.argv,
     [
-        "silver_database",
-        "silver_bucket",
-        "bronze_database",
-        "table_name",
+        'JOB_NAME',
+        'bronze_bucket',
+        'silver_bucket',
+        'silver_database'
     ]
 )
 
-INPUT_DATABASE = args['bronze_database']
-INPUT_TABLE = args['table_name']
-OUTPUT_BUCKET = args['silver_bucket']
-PROJECT = "btc"
-OUTPUT_DATABASE = args['silver_database']
-OUTPUT_TABLE_NAME = f"tbl_{PROJECT}"
-OUTPUT_S3_PATH = f"s3://{OUTPUT_BUCKET}/{PROJECT}/{OUTPUT_TABLE_NAME}/"
-TEMP_PATH = f"s3://{OUTPUT_BUCKET}/temp-athena/"
+sc = SparkContext.getOrCreate()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args['JOB_NAME'], args)
 
-query = f"""
-SELECT * FROM {INPUT_DATABASE}.{INPUT_TABLE}
+BRONZE_BUCKET = args['bronze_bucket']
+SILVER_BUCKET = args['silver_bucket']
+SILVER_DB = args['silver_database']
+TABLE_NAME = "tbl_crypto_market_silver"
+
+bronze_path = f"s3://{BRONZE_BUCKET}/crypto_market/tbl_crypto_market_raw/"
+silver_path = f"s3://{SILVER_BUCKET}/crypto_market/{TABLE_NAME}/"
+
+table_identifier = f"glue_catalog.{SILVER_DB}.{TABLE_NAME}"
+
+print("Reading bronze data...")
+# Pandas: pd.read_parquet(bronze_path)
+# Spark: spark.read.parquet(bronze_path)
+df_bronze = spark.read.parquet(bronze_path)
+
+print("Converting/cleaning data...")
+# pandas:`df['col'] = ...`
+# spark: `.withColumn("nome_da_coluna", nova_logica)`
+# `.cast("double")` = `.astype(float)`
+
+df_silver = df_bronze \
+    .withColumn("open", col("open").cast("double")) \
+    .withColumn("high", col("high").cast("double")) \
+    .withColumn("low", col("low").cast("double")) \
+    .withColumn("close", col("close").cast("double")) \
+    .withColumn("volume", col("volume").cast("double")) \
+    .withColumn("candle_time", to_timestamp(col("open_time") / 1000))
+
+# df[['col1', 'col2']] on Pandas
+df_final = df_silver.select(
+    col("symbol"),
+    col("candle_time"),
+    col("open"),
+    col("high"),
+    col("low"),
+    col("close"),
+    col("volume"),
+    col("ingestion_timestamp")
+)
+
+# Upsert w/ iceberg
+# turn the DataFrame into a temp view
+
+df_final.createOrReplaceTempView("vw_new_data")
+
+# Iceberg core query, merge statement, udpates if the records exists, insert if it does not
+merge_query = f"""
+MERGE INTO {table_identifier} target
+USING vw_new_data source
+ON target.symbol = source.symbol AND target.candle_time = source.candle_time
+WHEN MATCHED THEN
+    UPDATE SET 
+        target.open = source.open,
+        target.high = source.high,
+        target.low = source.low,
+        target.close = source.close,
+        target.volume = source.volume,
+        target.ingestion_timestamp = source.ingestion_timestamp
+WHEN NOT MATCHED THEN
+    INSERT (symbol, candle_time, open, high, low, close, volume, ingestion_timestamp)
+    VALUES (source.symbol, source.candle_time, source.open, source.high, source.low, source.close, source.volume, source.ingestion_timestamp)
 """
 
-df = wr.athena.read_sql_query(
-    sql = query,
-    database = INPUT_DATABASE,
-    ctas_approach = True,
-)
+# Check if the table already exists on athena/glue catalog
+table_exists_query = f"SHOW TABLES IN glue_catalog.{SILVER_DB} LIKE '{TABLE_NAME}'"
+tables = spark.sql(table_exists_query).collect()
 
-wr.s3.to_parquet(
-    df = df,
-    path = OUTPUT_S3_PATH,
-    index = False,
-    mode = 'overwrite',
-    dataset = True,
-    database = OUTPUT_DATABASE,
-    table = OUTPUT_TABLE_NAME,
-    schema_evolution = True
-)
+if len(tables) == 0:
+    print("First execution, table does not exist yet...")
+    # .writeTo() is the native function of spark to store iceberg tables (V2 allows UPDATE/DELETE statemtns)
+    df_final.writeTo(table_identifier) \
+        .tableProperty("format-version", "2") \
+        .tableProperty("location", silver_path) \
+        .create()
+else:
+    print("Tabela já existe. Executando MERGE INTO para evitar duplicidade...")
+    spark.sql(merge_query)
+
+print("Silver layer successfully ran.")
+job.commit()
