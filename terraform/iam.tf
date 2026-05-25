@@ -34,7 +34,12 @@ resource "aws_iam_policy" "glue_job_policy" {
           "s3:PutObject",
           "s3:DeleteObject"
         ]
-        Resource = "arn:aws:s3:::datashi-data-sample/*"
+        Resource = [
+          "arn:aws:s3:::${local.artifacts_bucket_name}/*",
+          "arn:aws:s3:::${local.bronze_bucket_name}/*",
+          "arn:aws:s3:::${local.silver_bucket_name}/*",
+          "arn:aws:s3:::${local.gold_bucket_name}/*"
+        ]
       },
       {
         Sid    = "PermissaoListagemS3Wrangler"
@@ -44,7 +49,10 @@ resource "aws_iam_policy" "glue_job_policy" {
           "s3:GetBucketLocation"
         ]
         Resource = [
-          "arn:aws:s3:::datashi-data-sample",
+          "arn:aws:s3:::${local.artifacts_bucket_name}",
+          "arn:aws:s3:::${local.bronze_bucket_name}",
+          "arn:aws:s3:::${local.silver_bucket_name}",
+          "arn:aws:s3:::${local.gold_bucket_name}",
           "arn:aws:s3:::aws-athena-query-results-*"
         ]
       },
