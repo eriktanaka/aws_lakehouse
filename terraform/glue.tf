@@ -11,7 +11,6 @@ resource "aws_glue_job" "bronze_btc" {
     local.common_default_arguments,
     {
       "--job_name" = join("-", [local.project_prefix, "glue-job", "bronze", "btc"])
-      "--additional-python-modules" = "awswrangler==3.7.1"
     }
   )
 }

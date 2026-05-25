@@ -78,12 +78,12 @@ df["symbol"] = SYMBOL
 print(f"Data extraction finished. {len(df)} records stored.")
 
 print("Storing data in s3 + athena...")
-wr.athena.to_iceberg(
+wr.s3.to_parquet(
     df=df,
+    path=OUTPUT_S3_PATH,
+    dataset=True,
     database=OUTPUT_DATABASE,
     table=OUTPUT_TABLE_NAME,
-    table_location=OUTPUT_S3_PATH,
-    temp_path=TEMP_PATH,
     mode="overwrite"
 )
 
