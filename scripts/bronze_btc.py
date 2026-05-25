@@ -1,13 +1,24 @@
 import time
+import sys
 import requests
 import pandas as pd
 import awswrangler as wr
 from datetime import datetime, timedelta
+from awsglue.utils import getResolvedOptions
 
-OUTPUT_BUCKET = "datashi-data-sample"
-PROJECT = "crypto_market"
-OUTPUT_DATABASE = "bronze"
-OUTPUT_TABLE_NAME = f"tbl_{PROJECT}_raw"
+args = getResolvedOptions(
+    sys.argv,
+    [
+        'bronze_bucket',
+        'bronze_database',
+    ]
+     )
+
+
+OUTPUT_BUCKET = args['bronze_bucket']
+PROJECT = "btc"
+OUTPUT_DATABASE = args['bronze_database']
+OUTPUT_TABLE_NAME = f"{PROJECT}"
 OUTPUT_S3_PATH = f"s3://{OUTPUT_BUCKET}/{PROJECT}/{OUTPUT_TABLE_NAME}/"
 TEMP_PATH = f"s3://{OUTPUT_BUCKET}/temp-athena/"
 
@@ -18,7 +29,7 @@ LIMIT = 1000
 ENDPOINT = "https://api.binance.com/api/v3/klines"
 
 def get_binance_data(symbol, interval, limit, days_back):
-    print(f"Iniciando extração de {symbol} dos ultimos {days_back} dias...")
+    print(f"Starting data extraction for {symbol} for the last {days_back} days...")
     
     start_time = int((datetime.now() - timedelta(days=days_back)).timestamp() * 1000)
     end_time = int(datetime.now().timestamp() * 1000)
@@ -64,9 +75,9 @@ df = df.astype(str)
 df["ingestion_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 df["symbol"] = SYMBOL
 
-print(f"Extração concluída. {len(df)} registros obtidos.")
+print(f"Data extraction finished. {len(df)} records stored.")
 
-print("Gravando camada Bronze no S3 e registrando no Athena...")
+print("Storing data in s3 + athena...")
 wr.athena.to_iceberg(
     df=df,
     database=OUTPUT_DATABASE,
@@ -76,4 +87,4 @@ wr.athena.to_iceberg(
     mode="overwrite"
 )
 
-print("Pipeline Bronze finalizada com sucesso!")
+print("Bronze process finished")
