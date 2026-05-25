@@ -16,7 +16,7 @@ resource "aws_glue_job" "bronze_btc" {
 }
 
 ##############################
-SILVE LAYER
+#########SILVER LAYER#########
 ##############################
 
 resource "aws_glue_job" "silver_btc" {
