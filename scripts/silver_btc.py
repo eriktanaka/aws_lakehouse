@@ -31,7 +31,7 @@ SILVER_DB = args['silver_database']
 TABLE_NAME = "btc"
 
 bronze_path = f"s3://{BRONZE_BUCKET}/btc/btc/"
-silver_path = f"s3://{SILVER_BUCKET}/btc/{TABLE_NAME}/"
+silver_path = f"s3://{SILVER_BUCKET}/btc/{TABLE_NAME}"
 
 table_identifier = f"glue_catalog.{SILVER_DB}.{TABLE_NAME}"
 
