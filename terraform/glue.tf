@@ -37,7 +37,6 @@ resource "aws_glue_job" "silver_btc" {
     {
       "--job_name"         = join("-", [local.project_prefix, "glue-job", "silver", "btc"])
       "--datalake-formats" = "iceberg"
-      "--conf"             = "spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog --conf spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO"
+      "--conf"             = "spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog --conf spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO --conf spark.sql.catalog.glue_catalog.warehouse=s3://${local.silver_bucket_name}/"
     }
   )
-}

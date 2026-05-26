@@ -28,10 +28,10 @@ job.init(args['JOB_NAME'], args)
 BRONZE_BUCKET = args['bronze_bucket']
 SILVER_BUCKET = args['silver_bucket']
 SILVER_DB = args['silver_database']
-TABLE_NAME = "tbl_crypto_market_silver"
+TABLE_NAME = "btc"
 
-bronze_path = f"s3://{BRONZE_BUCKET}/crypto_market/tbl_crypto_market_raw/"
-silver_path = f"s3://{SILVER_BUCKET}/crypto_market/{TABLE_NAME}/"
+bronze_path = f"s3://{BRONZE_BUCKET}/btc/btc/"
+silver_path = f"s3://{SILVER_BUCKET}/btc/{TABLE_NAME}/"
 
 table_identifier = f"glue_catalog.{SILVER_DB}.{TABLE_NAME}"
 
